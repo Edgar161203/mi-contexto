@@ -14,26 +14,60 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Instalar Claude Code
-        run: npm install -g @anthropic-ai/claude-code
-
-      - name: Diagnóstico del secret
+      - name: Generar briefing.md con Gemini
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          echo "Largo de la key: $(echo -n "$ANTHROPIC_API_KEY" | wc -c) caracteres"
+          python3 <<'EOF'
+          import json
+          import os
+          import urllib.request
+          from datetime import datetime, timezone, timedelta
 
-      - name: Generar briefing.md
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          claude -p "Lee quien-soy.md, que-hago.md y en-que-estoy.md de este repo. Escribe un briefing corto (5-8 líneas), tono cercano y merideño, dirigido a Edgar. Debe incluir: 1) la fecha de hoy y un saludo, 2) un recordatorio de UNA de sus 3 tareas manuales del negocio (registro de clientes/ventas, responder preguntas repetidas, o agendar citas de cambio de aceite) que podría ir automatizando, rotando cuál menciona cada día, 3) una frase corta de ánimo sobre su meta de ser programador. Guarda el resultado completo en briefing.md, sobreescribiendo el archivo si ya existe." \
-            --allowedTools "Read,Write" \
-            --permission-mode acceptEdits
+          def leer(nombre):
+              with open(nombre, "r", encoding="utf-8") as f:
+                  return f.read()
+
+          quien_soy = leer("quien-soy.md")
+          que_hago = leer("que-hago.md")
+          en_que_estoy = leer("en-que-estoy.md")
+
+          hoy = datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d")
+
+          prompt = f"""Hoy es {hoy}. Estos son los archivos de contexto de Edgar:
+
+          --- quien-soy.md ---
+          {quien_soy}
+
+          --- que-hago.md ---
+          {que_hago}
+
+          --- en-que-estoy.md ---
+          {en_que_estoy}
+
+          Escribe un briefing corto (5-8 líneas), tono cercano y merideño, dirigido a Edgar. Debe incluir:
+          1) la fecha de hoy y un saludo,
+          2) un recordatorio de UNA de sus 3 tareas manuales del negocio (registro de clientes/ventas, responder preguntas repetidas, o agendar citas de cambio de aceite) que podría ir automatizando, rotando cuál menciona cada día,
+          3) una frase corta de ánimo sobre su meta de ser programador.
+          Responde solo con el texto del briefing, sin comentarios extra."""
+
+          api_key = os.environ["GEMINI_API_KEY"]
+          url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+          body = json.dumps({
+              "contents": [{"parts": [{"text": prompt}]}]
+          }).encode("utf-8")
+
+          req = urllib.request.Request(
+              url, data=body, headers={"Content-Type": "application/json"}, method="POST"
+          )
+          with urllib.request.urlopen(req) as resp:
+              data = json.loads(resp.read().decode("utf-8"))
+
+          texto = data["candidates"][0]["content"]["parts"][0]["text"]
+
+          with open("briefing.md", "w", encoding="utf-8") as f:
+              f.write(texto.strip() + "\n")
+          EOF
 
       - name: Commit y push del briefing
         run: |
