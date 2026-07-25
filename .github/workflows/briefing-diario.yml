@@ -21,13 +21,6 @@ jobs:
       - name: Instalar Claude Code
         run: npm install -g @anthropic-ai/claude-code
 
-      - name: Diagnóstico del secret
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          echo "Largo de la key: $(echo -n "$ANTHROPIC_API_KEY" | wc -c) caracteres"
-          echo "Empieza con: $(echo -n "$ANTHROPIC_API_KEY" | cut -c1-8)"
-
       - name: Generar briefing.md
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
