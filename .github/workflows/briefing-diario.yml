@@ -1,0 +1,38 @@
+name: Briefing diario
+
+on:
+  schedule:
+    # 7:00am hora Mérida (UTC-4) de lunes a viernes = 11:00 UTC
+    - cron: '0 11 * * 1-5'
+  workflow_dispatch: {}
+
+jobs:
+  briefing:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Generar briefing.md
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          claude -p "Lee quien-soy.md, que-hago.md y en-que-estoy.md de este repo. Escribe un briefing corto (5-8 líneas), tono cercano y merideño, dirigido a Edgar. Debe incluir: 1) la fecha de hoy y un saludo, 2) un recordatorio de UNA de sus 3 tareas manuales del negocio (registro de clientes/ventas, responder preguntas repetidas, o agendar citas de cambio de aceite) que podría ir automatizando, rotando cuál menciona cada día, 3) una frase corta de ánimo sobre su meta de ser programador. Guarda el resultado completo en briefing.md, sobreescribiendo el archivo si ya existe." \
+            --allowedTools "Read,Write" \
+            --permission-mode acceptEdits
+
+      - name: Commit y push del briefing
+        run: |
+          git config user.name "briefing-bot"
+          git config user.email "actions@github.com"
+          git add briefing.md
+          git diff --staged --quiet || git commit -m "Briefing diario automático"
+          git push
