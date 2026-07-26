@@ -14,64 +14,54 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Generar briefing.md con Gemini
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Generar briefing.md con Claude Code + MCP de Supabase
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
-          python3 <<'EOF'
-          import json
-          import os
-          import urllib.request
-          from datetime import datetime, timezone, timedelta
+          HOY=$(TZ='America/Caracas' date +%Y-%m-%d)
+          QUIEN_SOY=$(cat quien-soy.md)
+          QUE_HAGO=$(cat que-hago.md)
+          EN_QUE_ESTOY=$(cat en-que-estoy.md)
 
-          def leer(nombre):
-              with open(nombre, "r", encoding="utf-8") as f:
-                  return f.read()
+          MCP_CONFIG=$(cat <<JSON
+          {"mcpServers":{"supabasemcp":{"command":"npx","args":["-y","@supabase/mcp-server-supabase","--project-ref=eccpmhaiowuiiojatidr","--read-only"],"env":{"SUPABASE_ACCESS_TOKEN":"$SUPABASE_ACCESS_TOKEN"}}}}
+          JSON
+          )
 
-          quien_soy = leer("quien-soy.md")
-          que_hago = leer("que-hago.md")
-          en_que_estoy = leer("en-que-estoy.md")
-
-          hoy = datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d")
-
-          prompt = f"""Hoy es {hoy}. Estos son los archivos de contexto de Edgar:
+          PROMPT="Hoy es $HOY. Estos son los archivos de contexto de Edgar:
 
           --- quien-soy.md ---
-          {quien_soy}
+          $QUIEN_SOY
 
           --- que-hago.md ---
-          {que_hago}
+          $QUE_HAGO
 
           --- en-que-estoy.md ---
-          {en_que_estoy}
+          $EN_QUE_ESTOY
 
-          Escribe un briefing corto (5-8 líneas), tono cercano y merideño, dirigido a Edgar. Debe incluir:
+          Primero usa la herramienta MCP de Supabase para listar las edge functions del proyecto y confirma que 'mi-herramienta' sigue activa.
+
+          Luego escribe un briefing corto (5-8 líneas), tono cercano y merideño, dirigido a Edgar. Debe incluir:
           1) la fecha de hoy y un saludo,
           2) un recordatorio de UNA de sus 3 tareas manuales del negocio (registro de clientes/ventas, responder preguntas repetidas, o agendar citas de cambio de aceite) que podría ir automatizando, rotando cuál menciona cada día,
-          3) una frase corta de ánimo sobre su meta de ser programador.
-          Responde solo con el texto del briefing, sin comentarios extra."""
+          3) una confirmación de que su edge function mi-herramienta sigue viva (según lo que acabas de consultar por MCP),
+          4) una frase corta de ánimo sobre su meta de ser programador.
+          Responde solo con el texto del briefing, sin comentarios extra."
 
-          api_key = os.environ["GEMINI_API_KEY"]
-          url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={api_key}"
-          body = json.dumps({
-              "contents": [{"parts": [{"text": prompt}]}]
-          }).encode("utf-8")
-
-          req = urllib.request.Request(
-              url, data=body, headers={"Content-Type": "application/json"}, method="POST"
-          )
-          try:
-              with urllib.request.urlopen(req) as resp:
-                  data = json.loads(resp.read().decode("utf-8"))
-          except urllib.error.HTTPError as e:
-              print("ERROR", e.code, e.read().decode("utf-8"))
-              raise
-
-          texto = data["candidates"][0]["content"]["parts"][0]["text"]
-
-          with open("briefing.md", "w", encoding="utf-8") as f:
-              f.write(texto.strip() + "\n")
-          EOF
+          claude -p "$PROMPT" \
+            --mcp-config "$MCP_CONFIG" \
+            --strict-mcp-config \
+            --allowedTools "mcp__supabasemcp__list_edge_functions" \
+            --output-format text \
+            > briefing.md
 
       - name: Commit y push del briefing
         run: |
