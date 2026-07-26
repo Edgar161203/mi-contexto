@@ -56,12 +56,21 @@ jobs:
           4) una frase corta de ánimo sobre su meta de ser programador.
           Responde solo con el texto del briefing, sin comentarios extra."
 
+          set +e
           claude -p "$PROMPT" \
             --mcp-config "$MCP_CONFIG" \
             --strict-mcp-config \
             --allowedTools "mcp__supabasemcp__list_edge_functions" \
             --output-format text \
-            > briefing.md
+            --debug \
+            > briefing.md 2> claude-stderr.log
+          CLAUDE_EXIT=$?
+          echo "--- claude exit code: $CLAUDE_EXIT ---"
+          echo "--- briefing.md ---"
+          cat briefing.md
+          echo "--- claude-stderr.log ---"
+          cat claude-stderr.log
+          exit $CLAUDE_EXIT
 
       - name: Commit y push del briefing
         run: |
