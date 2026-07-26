@@ -33,4 +33,11 @@ guardar_memoria() {
 
 extraer_commits
 
-echo "--- facts guardados: ${FACTS_GUARDADOS} ---"
+echo "--- facts guardados (commits): ${FACTS_GUARDADOS} ---"
+
+if [ -n "${GOOGLE_REFRESH_TOKEN:-}" ] && command -v node >/dev/null 2>&1; then
+  DIRECTORIO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  node "${DIRECTORIO}/google-extractor.mjs"
+else
+  echo "Google no configurado o node no disponible, saltando gmail/calendar."
+fi
