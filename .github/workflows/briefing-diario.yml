@@ -14,6 +14,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar cliente MCP
+        run: npm install @modelcontextprotocol/sdk
+
+      - name: Consultar mi-herramienta vía MCP de Supabase
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: node scripts/consultar-mi-herramienta.mjs > mi-herramienta-estado.txt
+
       - name: Generar briefing.md con Gemini
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -31,6 +43,7 @@ jobs:
           quien_soy = leer("quien-soy.md")
           que_hago = leer("que-hago.md")
           en_que_estoy = leer("en-que-estoy.md")
+          estado_mi_herramienta = leer("mi-herramienta-estado.txt").strip()
 
           hoy = datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d")
 
@@ -45,10 +58,14 @@ jobs:
           --- en-que-estoy.md ---
           {en_que_estoy}
 
+          Este es el estado real de su edge function mi-herramienta, obtenido justo ahora vía MCP de Supabase:
+          {estado_mi_herramienta}
+
           Escribe un briefing corto (5-8 líneas), tono cercano y merideño, dirigido a Edgar. Debe incluir:
           1) la fecha de hoy y un saludo,
           2) un recordatorio de UNA de sus 3 tareas manuales del negocio (registro de clientes/ventas, responder preguntas repetidas, o agendar citas de cambio de aceite) que podría ir automatizando, rotando cuál menciona cada día,
-          3) una frase corta de ánimo sobre su meta de ser programador.
+          3) una mención breve del estado de mi-herramienta que te acaban de confirmar por MCP,
+          4) una frase corta de ánimo sobre su meta de ser programador.
           Responde solo con el texto del briefing, sin comentarios extra."""
 
           api_key = os.environ["GEMINI_API_KEY"]
