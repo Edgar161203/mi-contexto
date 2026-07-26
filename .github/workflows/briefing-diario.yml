@@ -18,69 +18,77 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Instalar Claude Code CLI
-        run: npm install -g @anthropic-ai/claude-code
+      - name: Instalar cliente MCP
+        run: npm install @modelcontextprotocol/sdk
 
-      - name: Diagnóstico Claude Code CLI
+      - name: Consultar mi-herramienta vía MCP de Supabase
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          set +e
-          claude --version
-          echo "--- claude -p sin MCP ---"
-          claude -p "responde solo con la palabra: pong" --output-format text
-          echo "--- exit: $? ---"
-
-      - name: Generar briefing.md con Claude Code + MCP de Supabase
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: node scripts/consultar-mi-herramienta.mjs > mi-herramienta-estado.txt
+
+      - name: Generar briefing.md con Gemini
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          HOY=$(TZ='America/Caracas' date +%Y-%m-%d)
-          QUIEN_SOY=$(cat quien-soy.md)
-          QUE_HAGO=$(cat que-hago.md)
-          EN_QUE_ESTOY=$(cat en-que-estoy.md)
+          python3 <<'EOF'
+          import json
+          import os
+          import urllib.request
+          from datetime import datetime, timezone, timedelta
 
-          MCP_CONFIG=$(cat <<JSON
-          {"mcpServers":{"supabasemcp":{"command":"npx","args":["-y","@supabase/mcp-server-supabase","--project-ref=eccpmhaiowuiiojatidr","--read-only"],"env":{"SUPABASE_ACCESS_TOKEN":"$SUPABASE_ACCESS_TOKEN"}}}}
-          JSON
-          )
+          def leer(nombre):
+              with open(nombre, "r", encoding="utf-8") as f:
+                  return f.read()
 
-          PROMPT="Hoy es $HOY. Estos son los archivos de contexto de Edgar:
+          quien_soy = leer("quien-soy.md")
+          que_hago = leer("que-hago.md")
+          en_que_estoy = leer("en-que-estoy.md")
+          estado_mi_herramienta = leer("mi-herramienta-estado.txt").strip()
+
+          hoy = datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d")
+
+          prompt = f"""Hoy es {hoy}. Estos son los archivos de contexto de Edgar:
 
           --- quien-soy.md ---
-          $QUIEN_SOY
+          {quien_soy}
 
           --- que-hago.md ---
-          $QUE_HAGO
+          {que_hago}
 
           --- en-que-estoy.md ---
-          $EN_QUE_ESTOY
+          {en_que_estoy}
 
-          Primero usa la herramienta MCP de Supabase para listar las edge functions del proyecto y confirma que 'mi-herramienta' sigue activa.
+          Este es el estado real de su edge function mi-herramienta, obtenido justo ahora vía MCP de Supabase:
+          {estado_mi_herramienta}
 
-          Luego escribe un briefing corto (5-8 líneas), tono cercano y merideño, dirigido a Edgar. Debe incluir:
+          Escribe un briefing corto (5-8 líneas), tono cercano y merideño, dirigido a Edgar. Debe incluir:
           1) la fecha de hoy y un saludo,
           2) un recordatorio de UNA de sus 3 tareas manuales del negocio (registro de clientes/ventas, responder preguntas repetidas, o agendar citas de cambio de aceite) que podría ir automatizando, rotando cuál menciona cada día,
-          3) una confirmación de que su edge function mi-herramienta sigue viva (según lo que acabas de consultar por MCP),
+          3) una mención breve del estado de mi-herramienta que te acaban de confirmar por MCP,
           4) una frase corta de ánimo sobre su meta de ser programador.
-          Responde solo con el texto del briefing, sin comentarios extra."
+          Responde solo con el texto del briefing, sin comentarios extra."""
 
-          set +e
-          claude -p "$PROMPT" \
-            --mcp-config "$MCP_CONFIG" \
-            --strict-mcp-config \
-            --allowedTools "mcp__supabasemcp__list_edge_functions" \
-            --output-format text \
-            --debug \
-            > briefing.md 2> claude-stderr.log
-          CLAUDE_EXIT=$?
-          echo "--- claude exit code: $CLAUDE_EXIT ---"
-          echo "--- briefing.md ---"
-          cat briefing.md
-          echo "--- claude-stderr.log ---"
-          cat claude-stderr.log
-          exit $CLAUDE_EXIT
+          api_key = os.environ["GEMINI_API_KEY"]
+          url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={api_key}"
+          body = json.dumps({
+              "contents": [{"parts": [{"text": prompt}]}]
+          }).encode("utf-8")
+
+          req = urllib.request.Request(
+              url, data=body, headers={"Content-Type": "application/json"}, method="POST"
+          )
+          try:
+              with urllib.request.urlopen(req) as resp:
+                  data = json.loads(resp.read().decode("utf-8"))
+          except urllib.error.HTTPError as e:
+              print("ERROR", e.code, e.read().decode("utf-8"))
+              raise
+
+          texto = data["candidates"][0]["content"]["parts"][0]["text"]
+
+          with open("briefing.md", "w", encoding="utf-8") as f:
+              f.write(texto.strip() + "\n")
+          EOF
 
       - name: Commit y push del briefing
         run: |
