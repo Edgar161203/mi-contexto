@@ -4,43 +4,36 @@
 
 // Setup type definitions for built-in Supabase Runtime APIs
 import "@supabase/functions-js/edge-runtime.d.ts";
-import { withSupabase } from "@supabase/server";
 
 console.log("Hello from Functions!");
 
-// This endpoint uses 'publishable' | 'secret' access, apiKey is required.
-// Use publishable for Client-facing, key-validated endpoints
-// Use secret for Server-to-server, internal calls
+// Sin apikey: cualquiera puede pingearla (checklist de la Academia, demos, etc.)
+// No devuelve ni escribe nada sensible, solo un saludo del negocio.
 export default {
-  fetch: withSupabase({ auth: ["publishable", "secret"] }, async (req, ctx) => {
-    // Called by another service with a secret key
-    // ctx.supabaseAdmin bypasses RLS — use for privileged operations
-    /*
-    if (ctx.authMode === "secret") {
-      const { user_id } = await req.json();
-      const { data } = await ctx.supabaseAdmin.auth.admin.getUserById(user_id);
-
-      return Response.json({
-        email: data?.user?.email,
-      });
+  fetch: async (req: Request) => {
+    let name = "amigo";
+    if (req.method === "POST") {
+      try {
+        const body = await req.json();
+        if (body?.name) name = body.name;
+      } catch {
+        // body vacío o no-JSON: seguimos con el saludo genérico
+      }
     }
-    */
-
-    const { name } = await req.json();
 
     return Response.json({
       message: `¡Épale ${name}! Gracias por escribir a Repuestos y Cambio de Aceite. El cambio de aceite toma entre 30 y 45 minutos aprox. Los precios te los confirmamos en $ y Bs apenas nos digas la pieza o el modelo del carro.`,
     });
-  }),
+  },
 };
 
-/* To invoke locally:
+/* To invoke:
 
-  1. Run `supabase start` (see: https://supabase.com/docs/reference/cli/supabase-start)
-  2. Make an HTTP request:
+  curl -i --location --request POST 'https://eccpmhaiowuiiojatidr.supabase.co/functions/v1/mi-herramienta' \
+    --data '{"name":"Edgar"}'
 
-  curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/mi-herramienta' \
-    --header 'apiKey: sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' \
-    --data '{"name":"Functions"}'
+  O como ping simple (sin body, sin apikey):
+
+  curl -i 'https://eccpmhaiowuiiojatidr.supabase.co/functions/v1/mi-herramienta'
 
 */
