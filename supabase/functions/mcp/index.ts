@@ -11,12 +11,33 @@ import "@supabase/functions-js/edge-runtime.d.ts";
 // tools/list sin credenciales.
 
 const PROTOCOL_VERSION = "2024-11-05";
+const REPO_RAW = "https://raw.githubusercontent.com/Edgar161203/mi-contexto/master";
 
 const TOOLS = [
   {
     name: "estado_taller",
     description:
       "Consulta el estado del taller de repuestos y cambio de aceite de Edgar en Mérida: tiempo estimado del servicio de cambio de aceite y cómo se confirman los precios.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: "ultima_ejecucion_openclaw",
+    description:
+      "Devuelve el registro más reciente de una corrida real del OpenClaw de Edgar (memory/log.md del repo).",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: "resumen_negocio",
+    description:
+      "Resume el negocio real de Edgar (repuestos y cambio de aceite) a partir de los archivos de contexto de su repo.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -46,6 +67,21 @@ async function callTool(name: string) {
       ],
     };
   }
+
+  if (name === "ultima_ejecucion_openclaw") {
+    const res = await fetch(`${REPO_RAW}/memory/log.md`);
+    const text = await res.text();
+    const lines = text.trim().split("\n").filter(Boolean);
+    const ultima = lines.at(-1)?.replace(/^- /, "") ?? "Aún no hay corridas registradas.";
+    return { content: [{ type: "text", text: ultima }] };
+  }
+
+  if (name === "resumen_negocio") {
+    const res = await fetch(`${REPO_RAW}/que-hago.md`);
+    const text = await res.text();
+    return { content: [{ type: "text", text: text.trim() }] };
+  }
+
   throw new Error(`Herramienta desconocida: ${name}`);
 }
 
