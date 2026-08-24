@@ -1,5 +1,5 @@
-¡Epa, Edgar! Un saludo cálido aquí en nuestra Mérida hermosa hoy, 21 de agosto de 2026. 
-
-Pensando en el taller y los repuestos, una tarea fina para ir pensando en automatizar es el agendamiento de las citas de cambio de aceite por WhatsApp, así te quitas esa carga del teléfono. Por cierto, te confirmo que tu edge function `mi-herramienta` está marchando al día: se encuentra ACTIVA en su versión 8. 
-
-Métale ganas a la Academia Catalizadora, mi hermano; vas por muy buen camino para convertirte en ese programador profesional que te propusiste. ¡Con todo!
+¡Epa, Edgar! Un saludo firme desde acá hoy 24 de agosto de 2026.
+Pensando en tu trabajo en el negocio, acuérdate de que responder a cada rato las preguntas repetidas sobre precios y disponibilidad de partes es algo que podrías ir automatizando para ahorrarte buen tiempo.
+Te cuento además que me acaban de confirmar el estado de tu edge function `mi-herramienta`: está activa y marchando fino en su versión 8.
+Sigue dándole con todo a la academia, mi pana; con esa humildad y ganas de aprender vas directo a convertirte en ese programador profesional que te propusiste.
+¡A romperla hoy y a seguir sumando!
